@@ -117,25 +117,197 @@
          (node->line (:filename ctx) keyvec :warning :single-key-in
                      (format "%s with single key" called-name)))))))
 
+(defn lint-and-or [ctx called-name call]
+  (when-not (utils/linter-disabled? ctx :redundant-negation)
+    (let [next-children (next (:children call))
+          not-first-list? (fn [child]
+                            (and (= :list (:tag child))
+                                 (= 'not (-> child :children first :value))))]
+      (when (and next-children
+                 (every? not-first-list? next-children))
+        (findings/reg-finding!
+         ctx
+         (case called-name
+           and (node->line (:filename ctx) call :warning :redundant-negation
+                           (format "And & %s nots used instead of 1 not with or"
+                                   (count next-children)))
+           or (node->line (:filename ctx) call :warning :redundant-negation
+                          (format "Or & %s nots used instead of 1 not with and"
+                                  (count next-children)))))))))
+
+(defn negated-cases [ctx call negator-string negated-child]
+  (case negated-child
+    nil? (findings/reg-finding!
+          ctx
+          (node->line (:filename ctx) call :warning :redundant-negation
+                      (format "%s and nil? used instead of some?" negator-string)))
+
+    some? (findings/reg-finding!
+           ctx
+           (node->line (:filename ctx) call :warning :redundant-negation
+                       (format "%s and some? used instead of nil?" negator-string)))
+
+    = (findings/reg-finding!
+       ctx
+       (node->line (:filename ctx) call :warning :redundant-negation
+                   (format "%s and = used instead of not=" negator-string)))
+
+    even? (findings/reg-finding!
+           ctx
+           (node->line (:filename ctx) call :warning :redundant-negation
+                       (format "%s and even? used instead of odd?" negator-string)))
+
+    odd? (findings/reg-finding!
+          ctx
+          (node->line (:filename ctx) call :warning :redundant-negation
+                      (format "%s and odd? used instead of even?" negator-string)))
+
+    seq (findings/reg-finding!
+         ctx
+         (node->line (:filename ctx) call :warning :redundant-negation
+                     (format "%s and seq used instead of empty?" negator-string)))
+
+    some (findings/reg-finding!
+          ctx
+          (node->line (:filename ctx) call :warning :redundant-negation
+                      (format "%s and some used instead of not-any?" negator-string)))
+
+    every? (findings/reg-finding!
+            ctx
+            (node->line (:filename ctx) call :warning :redundant-negation
+                        (format "%s and every? used instead of not-every?" negator-string)))
+    nil))
+
+(defn lint-comp-not [ctx call]
+  (when-not (utils/linter-disabled? ctx :redundant-negation)
+    (let [[_ f g] (:children call)]
+      (when (= 'not (:value f))
+        (negated-cases ctx call "not" (:value g))))))
+
+(defn lint-not [ctx call]
+  (when-not (utils/linter-disabled? ctx :redundant-negation)
+    (let [[_ x] (:children call)
+          first-x-child-val (:value (first (:children x)))]
+      (negated-cases ctx call "not" first-x-child-val))))
+
+(defn lint-complement [ctx call]
+  (when-not (utils/linter-disabled? ctx :redundant-negation)
+    (let [[_ f] (:children call)]
+      (negated-cases ctx call "complement" (:value f)))))
+
+(defn lint-if-not-when-not
+  "Unlike `negated-cases`, this linter only checks for double-negatives.
+  E.g. `(if-not (some? ...))` expands to `(if-not (not (nil? ...)))`."
+  [ctx called-name call]
+  (when-not (utils/linter-disabled? ctx :redundant-negation)
+    (let [[_ x] (:children call)
+          first-x-child-val (:value (first (:children x)))
+          alternative ({'if-not "if", 'when-not "when"} called-name)]
+      (case first-x-child-val
+        some? (findings/reg-finding!
+               ctx
+               (node->line (:filename ctx) call :warning :redundant-negation
+                           (format "%s and some? used instead of %s and nil?"
+                                   called-name alternative)))
+
+        odd? (findings/reg-finding!
+              ctx
+              (node->line (:filename ctx) call :warning :redundant-negation
+                          (format "%s and odd? used instead of %s and even?"
+                                  called-name alternative)))
+
+        empty? (findings/reg-finding!
+                ctx
+                (node->line (:filename ctx) call :warning :redundant-negation
+                            (format "%s and empty? used instead of %s and seq"
+                                    called-name alternative)))
+
+        nil))))
+
+(defn lint-filter-remove [ctx called-name call]
+  (when-not (utils/linter-disabled? ctx :redundant-negation)
+    (let [[_ pred] (:children call)
+          [first-pred-child second-pred-child] (:children pred)
+          first-pred-child-val (:value first-pred-child)
+          second-pred-child-val (:value second-pred-child)
+          alternative ({'filter "remove", 'remove "filter"} called-name)]
+      (cond
+        (= 'complement first-pred-child-val)
+        (findings/reg-finding!
+         ctx
+         (node->line (:filename ctx) call :warning :redundant-negation
+                     (format "%s and complement used instead of %s"
+                             called-name alternative)))
+
+        (and (= 'comp first-pred-child-val)
+             (= 'not second-pred-child-val))
+        (findings/reg-finding!
+         ctx
+         (node->line (:filename ctx) call :warning :redundant-negation
+                     (format "%s and comp with not used instead of %s"
+                             called-name alternative)))
+
+        (or (and (= :fn (tag pred)) ; reader-literal anonymous fn
+                 (= 'not first-pred-child-val))
+            (and (= :list (tag pred))
+                 (= 'fn first-pred-child-val) ; long-form anonymous fn
+                 (= 'not (-> pred :children last :children first :value))))
+        (findings/reg-finding!
+         ctx
+         (node->line (:filename ctx) call :warning :redundant-negation
+                     (format "%s and not used instead of %s"
+                             called-name alternative)))))))
+
+(defn lint-if-when-not [ctx called-name call]
+  (when-not (utils/linter-disabled? ctx :redundant-negation)
+    (let [[_ test] (:children call)
+          first-test-child-val (:value (first (:children test)))]
+      (when (= 'not first-test-child-val)
+        (findings/reg-finding!
+         ctx
+         (node->line (:filename ctx) call :warning :redundant-negation
+                     (format "%s and not used instead of %s-not"
+                             called-name called-name)))))))
+
 (defn lint-specific-calls! [ctx call called-fn]
   (let [called-ns (:ns called-fn)
         called-name (:name called-fn)]
     (case [called-ns called-name]
       ([clojure.core cond] [cljs.core cond])
       (lint-cond ctx (:expr call))
-      ([clojure.core if-let] [clojure.core if-not] [clojure.core if-some]
-       [cljs.core if-let] [cljs.core if-not] [cljs.core if-some])
+      ([clojure.core if-let] [clojure.core if-some]
+       [cljs.core if-let] [cljs.core if-some])
       (lint-missing-else-branch ctx (:expr call))
       ([clojure.core get-in] [clojure.core assoc-in] [clojure.core update-in]
        [cljs.core get-in] [cljs.core assoc-in] [cljs.core update-in])
       (lint-single-key-in ctx called-name (:expr call))
+      ([clojure.core and] [clojure.core or]
+       [cljs.core and] [cljs.core or])
+      (lint-and-or ctx called-name (:expr call))
+      ([clojure.core when] [cljs.core when])
+      (lint-if-when-not ctx called-name (:expr call))
+      ([clojure.core not] [cljs.core not] )
+      (lint-not ctx (:expr call))
+      ([clojure.core if-not] [cljs.core if-not])
+      (do (lint-missing-else-branch ctx (:expr call))
+          (lint-if-not-when-not ctx called-name (:expr call)))
+      ([clojure.core when-not] [cljs.core when-not])
+      (lint-if-not-when-not ctx called-name (:expr call))
+      ([clojure.core comp] [cljs.core comp])
+      (lint-comp-not ctx (:expr call))
+      ([clojure.core complement] [cljs.core complement])
+      (lint-complement ctx (:expr call))
+      ([clojure.core filter] [clojure.core remove]
+       [cljs.core filter] [cljs.core remove])
+      (lint-filter-remove ctx called-name (:expr call))
       #_([clojure.test is] [cljs.test is])
       #_(lint-test-is ctx (:expr call))
       nil)
 
     ;; special forms which are not fns
     (when (= 'if (:name call))
-      (lint-missing-else-branch ctx (:expr call)))
+      (lint-missing-else-branch ctx (:expr call))
+      (lint-if-when-not ctx 'if (:expr call)))
 
     (when (get-in var-info/predicates [called-ns called-name])
       (lint-missing-test-assertion ctx call))))

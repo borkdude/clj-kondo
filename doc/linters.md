@@ -30,6 +30,7 @@ Table of contents:
   - [Redefined var](#redefined-var)
   - [Redundant do](#redundant-do)
   - [Redundant let](#redundant-let)
+  - [Redundant negation](#redundant-negation)
   - [Refer](#refer)
   - [Refer all](#refer-all)
   - [Single key in](#single-key-in)
@@ -491,6 +492,29 @@ because directly nested lets.
 *Example trigger:* `(let [x 1] (let [y 2] (+ x y)))`.
 
 *Example message:* `Redundant let expression.`
+
+### Redundant negation
+
+*Keyword:* `:redundant-negation`.
+
+*Description:* warn on usage of `not` or `complement` that is redundant. This includes
+`and` & `or` used with multiple `not`s, negated core fns where their complement is
+already available, and `filter` and `remove` used with negated fns. *N.b.* `:not-empty`
+is a separate (and default enabled) linter.
+
+*Default level:* `:off`.
+
+*Example trigger:* `(and (not (string? "foo")) (not (keyword? :bar)))`.
+
+*Example message:* `And & 2 nots used instead of 1 not with or`.
+
+*Example trigger:* `(not (nil? foo))`.
+
+*Example message:* `not and nil? used instead of some?`.
+
+*Example trigger:* `(filter #(not (string? %)) [:foo "bar" 42])`.
+
+*Example message:* `filter and not used instead of remove`.
 
 ### Refer
 

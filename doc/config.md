@@ -84,6 +84,7 @@ Some linters are not enabled by default. Right now these linters are:
 - `:unsorted-required-namespaces`: warn when namespaces in `:require` are not sorted.
 - `:refer`: warn when there is **any** usage of `:refer` in your namespace requires.
 - `:single-key-in`: warn when using assoc-in, update-in or get-in with single key.
+- `:redundant-negation`: warn on redundant use of `not` or `complement`.
 - `:shadowed-var`: warn when a binding shadows a var.
 
 You can enable these linters by setting the `:level`:
