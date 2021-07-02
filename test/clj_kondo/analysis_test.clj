@@ -644,6 +644,16 @@
        {:fixed-arities #{1}, :end-row 5, :name-end-col 33, :name-end-row 5, :name-row 5, :ns foo, :name map->A, :defined-by schema.core/defrecord, :filename "<stdin>", :col 19, :name-col 32, :end-col 40, :row 5}]
      var-definitions)))
 
+(deftest schema-output-schema-test
+  (let [{:keys [:var-definitions]}
+        (analyze "(ns foo (:require [schema.core :as s]))
+                  (s/defn f1 :- s/Int [d :- s/Str] d)
+                  (s/def f2 :- s/Str \"1\")")]
+    (assert-submaps
+     '[{:output-schema-str "s/Int" :name f1 :defined-by schema.core/defn}
+       {:output-schema-str "s/Str" :name f2 :defined-by schema.core/def}]
+     var-definitions)))
+
 (deftest declare-var-test
   (let [{:keys [:var-definitions]}
         (analyze "(ns foo)

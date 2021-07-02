@@ -33,18 +33,22 @@
   [_ctx fn-sym expr]
   (let [children (:children expr)
         {:keys [:new-children
+                :output-schema
                 :schemas]}
         (loop [[fst-child & rest-children] children
                index 0
                res {:new-children []
-                    :schemas []}]
+                    :schemas []
+                    :output-schema nil}]
           (let [sexpr (when fst-child (utils/sexpr fst-child))]
             (cond (not fst-child)
                   res
                   (= ':- sexpr)
                   (recur (next rest-children)
                          (inc index)
-                         (update res :schemas conj (first rest-children)))
+                         (-> res
+                             (update :schemas conj (first rest-children))
+                             (assoc :output-schema (first rest-children))))
                   (and (vector? sexpr) (not (defmethod-dispatch-val? fn-sym index)))
                   (let [{:keys [:expr :schemas]} (remove-schemas-from-children fst-child)]
                     (-> res
@@ -63,7 +67,10 @@
                                (update :new-children conj new-fst-child))))
                   :else (recur rest-children
                                (inc index)
-                               (update res :new-children conj fst-child)))))]
+                               (update res :new-children conj fst-child)))))
+        new-children (if output-schema
+                       (assoc-in new-children [1 :output-schema] output-schema)
+                       new-children)]
     {:expr (assoc expr :children new-children)
      :schemas schemas}))
 

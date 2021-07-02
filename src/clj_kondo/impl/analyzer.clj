@@ -524,6 +524,8 @@
                    :fixed-arities (not-empty fixed-arities)
                    :arglist-strs (when (:analyze-arglists? ctx)
                                    arglist-strs)
+                   :output-schema-str (when (:output-schema name-node)
+                                        (str (sexpr (:output-schema name-node))))
                    :arities arities
                    :varargs-min-arity varargs-min-arity
                    :doc docstring
@@ -890,6 +892,8 @@
                           expr
                           (assoc-some metadata
                                       :doc docstring
+                                      :output-schema-str (when (:output-schema var-name-node)
+                                                           (str (sexpr (:output-schema var-name-node))))
                                       :defined-by defined-by)))
     (analyze-children (assoc ctx
                              :in-def var-name)

@@ -60,6 +60,7 @@ The analysis output consists of a map with:
   - `:lang`: if definition occurred in a `.cljc` file, the language in which the
     definition was done: `:clj` or `:cljs`
   - `:arglists-str`: a list of each set of args as written
+  - `:output-schema-str`: a string representing the return schema
 
 - `:var-usages`, a list of maps with:
   - `:filename`, `:row`, `:col`

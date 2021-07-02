@@ -40,7 +40,7 @@
     (let [attrs (select-keys attrs [:private :macro :fixed-arities :varargs-min-arity
                                     :doc :added :deprecated :test :export :defined-by
                                     :name-row :name-col :name-end-col :name-end-row
-                                    :arglist-strs :end-row :end-col])]
+                                    :arglist-strs :output-schema-str :end-row :end-col])]
       (swap! analysis update :var-definitions conj
              (assoc-some
               (merge {:filename filename
