@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+
+# this script is to be run from the root of the project
+
+# might require version check, but current task would
+# work with most node versions
+
+node --version 2> /dev/null
+
+if [ $? -eq 0 ]
+then
+    echo "Awesome, you have node installed!"
+else
+    echo "Please install node to run this script!"
+    exit 1
+fi
+
+# may not be required since most of the time node & npm
+# are installed together at the time node installation
+
+npm --version 2> /dev/null
+
+if [ $? -eq 0 ]
+then
+    echo "Awesome you have npm installed!"
+else
+    echo "Please install npm to run this script!"
+    exit 1
+fi
+
+# install node_modules
+
+(if [ ! -d ./extract/javascript/node_modules/ ]; then
+     npm install --prefix ./extract/javascript/
+fi
+)
+
+# cloning repo and extracting of information from the es3.js file
+
+(if [ ! -d ./extract/javascript/closure-compiler ]; then
+     git clone https://github.com/google/closure-compiler ./extract/javascript/closure-compiler
+     mv ./extract/javascript/closure-compiler/externs/es3.js ./extract/javascript/
+     npm run gendoc --prefix ./extract/javascript/
+fi
+)
+
+# FIXME: npm throws up an error on some versions. tested with v8(err), v10(err), v12
+
+# you should have es3-doc.json created now
+
+# clean up
+
+rm -rf ./extract/javascript/closure-compiler
+rm -rf ./extract/javascript/es3.js
+rm -rf ./extract/javascript/node_modules

@@ -1,0 +1,14 @@
+{
+  "name": "clj-kondo-js-arity-info",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "gendoc": "jsdoc -c jsdoc-config.json es3.js -t templates/haruki -d console > es3-docs.json"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "jsdoc": "^3.6.4"
+  }
+}
